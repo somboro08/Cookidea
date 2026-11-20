@@ -308,15 +308,13 @@ class _Sidebar extends StatelessWidget {
           const _NavTile(
             item: _NavItem(Icons.settings_outlined, 'Paramètres'),
             selected: false,
-            onTap: _noop,
+            onTap: _emptyCallback,
           ),
         ],
       ),
     );
   }
 }
-
-const _noop = _emptyCallback;
 
 void _emptyCallback() {}
 
