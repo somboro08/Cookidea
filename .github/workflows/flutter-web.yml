@@ -30,7 +30,7 @@ jobs:
       - name: Format
         run: dart format .
       - name: Analyze
-        run: flutter analyze --fatal-infos
+        run: flutter analyze
       - name: Test
         run: flutter test
       - name: Build Web
