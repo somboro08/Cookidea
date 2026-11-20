@@ -65,6 +65,7 @@ Deno.serve(async (req: Request) => {
         avatar_url: profile?.avatar_url ?? null,
       });
     }
+    members.unshift({ id: null, user_id: project.owner_id, role: "owner", joined_at: null, full_name: caller.user_metadata?.full_name ?? null, email: caller.email ?? null, avatar_url: null, is_owner: true });
     return json({ members });
   }
 
@@ -101,8 +102,8 @@ Deno.serve(async (req: Request) => {
       try {
         await transport.sendMail({
           from: smtpFrom, to: email, replyTo: caller.email ?? undefined,
-          subject: \`Vous avez rejoint « \${project.name} » sur Cookidea\`,
-          text: \`\${caller.user_metadata?.full_name ?? caller.email ?? "Un membre"} vous a ajouté au projet « \${project.name} » avec le rôle \${role === "editor" ? "Éditeur" : "Lecteur"}. Connectez-vous à Cookidea pour le retrouver.\`,
+          subject: "Vous avez rejoint « " + project.name + " » sur Cookidea",
+          text: (caller.user_metadata?.full_name ?? caller.email ?? "Un membre") + " vous a ajouté au projet « " + project.name + " » avec le rôle " + (role === "editor" ? "Éditeur" : "Lecteur") + ". Connectez-vous à Cookidea pour le retrouver.",
         });
         emailSent = true;
       } catch (error) { console.error("Member notification failed", error); }
