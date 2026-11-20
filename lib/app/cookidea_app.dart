@@ -17,14 +17,6 @@ class CookideaApp extends StatelessWidget {
       ),
       scaffoldBackgroundColor: const Color(0xFFF7F8FC),
       textTheme: GoogleFonts.interTextTheme(),
-      cardTheme: CardTheme(
-        color: Colors.white,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: Color(0xFFE9EAF2)),
-        ),
-      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0xFFF8F9FC),
