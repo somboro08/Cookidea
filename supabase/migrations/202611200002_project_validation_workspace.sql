@@ -64,19 +64,12 @@ for each row execute function public.set_updated_at();
 
 grant select, insert, update, delete on public.project_hypotheses, public.project_experiments, public.project_evidence, public.project_decisions to authenticated;
 
-do $
-declare t text;
-begin
-  foreach t in array array['project_hypotheses','project_experiments','project_evidence','project_decisions'] loop
-    execute format('alter table public.%I enable row level security', t);
-    execute format('create policy "Members can view %1$s" on public.%1$I for select to authenticated using (public.is_project_member(project_id))', t);
-    execute format('create policy "Editors can insert %1$s" on public.%1$I for insert to authenticated with check (created_by = (select auth.uid()) and public.can_edit_project(project_id))', t);
-    execute format('create policy "Editors can update %1$s" on public.%1$I for update to authenticated using (public.can_edit_project(project_id)) with check (public.can_edit_project(project_id))', t);
-    execute format('create policy "Editors can delete %1$s" on public.%1$I for delete to authenticated using (public.can_edit_project(project_id))', t);
-  end loop;
-end $$;
+alter table public.project_hypotheses enable row level security;
+alter table public.project_experiments enable row level security;
+alter table public.project_evidence enable row level security;
+alter table public.project_decisions enable row level security;
 
-commit;create policy "Members can view hypotheses" on public.project_hypotheses for select to authenticated using (public.is_project_member(project_id));
+create policy "Members can view hypotheses" on public.project_hypotheses for select to authenticated using (public.is_project_member(project_id));
 create policy "Editors can insert hypotheses" on public.project_hypotheses for insert to authenticated with check (created_by = (select auth.uid()) and public.can_edit_project(project_id));
 create policy "Editors can update hypotheses" on public.project_hypotheses for update to authenticated using (public.can_edit_project(project_id)) with check (public.can_edit_project(project_id));
 create policy "Editors can delete hypotheses" on public.project_hypotheses for delete to authenticated using (public.can_edit_project(project_id));
