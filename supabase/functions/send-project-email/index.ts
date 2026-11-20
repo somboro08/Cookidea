@@ -38,7 +38,7 @@ Deno.serve(async (request: Request) => {
   if (!supabaseUrl || !secretKey) return json({ error: "SERVER_CONFIGURATION_ERROR" }, 500);
 
   const authorization = request.headers.get("Authorization") ?? "";
-  const token = authorization.replace(/^Bearer\\s+/i, "");
+  const token = authorization.replace(/^Bearer\s+/i, "");
   if (!token || token === authorization) return json({ error: "UNAUTHORIZED" }, 401);
 
   const admin = createClient(supabaseUrl, secretKey, {
@@ -67,7 +67,7 @@ Deno.serve(async (request: Request) => {
   if (!projectId || !recipientId || !subject || !message) {
     return json({ error: "MISSING_FIELDS" }, 400);
   }
-  if (subject.length > 140 || /[\\r\\n]/.test(subject) || message.length > 8000) {
+  if (subject.length > 140 || /[\r\n]/.test(subject) || message.length > 8000) {
     return json({ error: "INVALID_MESSAGE_LENGTH" }, 400);
   }
   if (recipientId === caller.id) return json({ error: "CANNOT_EMAIL_SELF" }, 400);
@@ -139,7 +139,7 @@ Deno.serve(async (request: Request) => {
       to: recipientEmail,
       replyTo: caller.email ?? undefined,
       subject: `Cookidea · ${project.name}: ${subject}`,
-      text: `${message}\\n\\n— ${caller.user_metadata?.full_name ?? caller.email ?? "Un membre"}\\nProjet : ${project.name}\\n\\nVous recevez cet e-mail car vous participez à ce projet sur Cookidea.`,
+      text: `${message}\n\n— ${caller.user_metadata?.full_name ?? caller.email ?? "Un membre"}\nProjet : ${project.name}\n\nVous recevez cet e-mail car vous participez à ce projet sur Cookidea.`,
     });
   } catch (error) {
     console.error("Project email delivery failed", error);
