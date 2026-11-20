@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme.dart';
+import 'project_members_tab.dart';
 
 class ProjectWorkspacePage extends StatefulWidget {
   const ProjectWorkspacePage({super.key, required this.project, required this.supabaseEnabled});
@@ -63,7 +64,7 @@ class _ProjectWorkspacePageState extends State<ProjectWorkspacePage> {
     final name = widget.project['name']?.toString() ?? 'Projet sans nom';
     final idea = widget.project['initial_idea']?.toString() ?? '';
     return DefaultTabController(
-      length: 5,
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
           title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -74,6 +75,7 @@ class _ProjectWorkspacePageState extends State<ProjectWorkspacePage> {
             Tab(icon: Icon(Icons.science_outlined), text: 'Expériences'),
             Tab(icon: Icon(Icons.fact_check_outlined), text: 'Preuves'),
             Tab(icon: Icon(Icons.account_tree_outlined), text: 'Décisions'),
+            Tab(icon: Icon(Icons.groups_outlined), text: 'Équipe'),
           ]),
         ),
         body: Column(children: [
@@ -97,6 +99,7 @@ class _ProjectWorkspacePageState extends State<ProjectWorkspacePage> {
           Expanded(child: TabBarView(children: [
             _framing(p),
             for (final config in configs) _RecordsTab(key: ValueKey(config.table), projectId: widget.project['id'].toString(), enabled: widget.supabaseEnabled, config: config),
+            ProjectMembersTab(projectId: widget.project['id'].toString(), enabled: widget.supabaseEnabled),
           ])),
         ]),
       ),
