@@ -15,7 +15,6 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
   bool _loading = true;
-  bool _creating = false;
   String? _loadError;
   final List<Map<String, dynamic>> _projects = [];
 
@@ -50,7 +49,6 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _createProject(String name, String idea) async {
-    setState(() => _creating = true);
     try {
       Map<String, dynamic> project;
       if (widget.supabaseEnabled) {
@@ -91,7 +89,6 @@ class _DashboardPageState extends State<DashboardPage> {
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
     } finally {
-      if (mounted) setState(() => _creating = false);
     }
   }
 
@@ -356,7 +353,7 @@ class _ProjectCard extends StatelessWidget {
     final created=DateTime.tryParse(project['created_at']?.toString()??'');
     return InkWell(
       borderRadius: BorderRadius.circular(18),
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+      onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => ProjectWorkspacePage(project: project, supabaseEnabled: supabaseEnabled),
       )),
       child: Card(child:Padding(padding:const EdgeInsets.all(19),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
