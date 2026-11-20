@@ -63,6 +63,9 @@ create table public.project_activity (
 create index project_activity_project_created_idx
   on public.project_activity(project_id, created_at desc);
 
+create index project_activity_actor_idx
+  on public.project_activity(actor_id);
+
 create or replace function public.is_project_member(target_project_id uuid)
 returns boolean
 language sql
@@ -141,6 +144,8 @@ begin
   return new;
 end;
 $$;
+
+revoke all on function public.handle_new_user() from public, anon, authenticated;
 
 create trigger on_auth_user_created
 after insert on auth.users
