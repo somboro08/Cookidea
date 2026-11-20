@@ -1,0 +1,4 @@
+project_id = "vfoactgnpmhiirblnxpy"
+
+[functions.send-project-email]
+verify_jwt = true
