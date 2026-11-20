@@ -62,7 +62,9 @@ create index project_decisions_project_idx on public.project_decisions(project_i
 create trigger project_decisions_set_updated_at before update on public.project_decisions
 for each row execute function public.set_updated_at();
 
-do $$
+grant select, insert, update, delete on public.project_hypotheses, public.project_experiments, public.project_evidence, public.project_decisions to authenticated;
+
+do $
 declare t text;
 begin
   foreach t in array array['project_hypotheses','project_experiments','project_evidence','project_decisions'] loop
