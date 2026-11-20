@@ -28,7 +28,7 @@ jobs:
         run: flutter pub get
 
       - name: Verify formatting
-        run: dart format --output=none .
+        run: dart format .
 
       - name: Analyze
         run: flutter analyze --fatal-infos
