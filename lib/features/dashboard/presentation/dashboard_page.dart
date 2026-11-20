@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-
-const _ink = Color(0xFF202238);
-const _muted = Color(0xFF85899D);
-const _purple = Color(0xFF635BFF);
-const _line = Color(0xFFE9EAF2);
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/icons.dart';
+import '../../../core/theme.dart';
 
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+  const DashboardPage({super.key, required this.supabaseEnabled});
+  final bool supabaseEnabled;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -14,764 +13,362 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
-  final List<_ProjectDraft> _projects = [];
+  bool _loading = true;
+  bool _creating = false;
+  String? _loadError;
+  final List<Map<String, dynamic>> _projects = [];
 
-  void _showCreateProjectDialog() {
-    final nameController = TextEditingController();
-    final ideaController = TextEditingController();
+  @override
+  void initState() {
+    super.initState();
+    _loadProjects();
+  }
 
-    showDialog<void>(
+  Future<void> _loadProjects() async {
+    if (widget.supabaseEnabled) {
+      try {
+        final rows = await Supabase.instance.client
+            .from('projects')
+            .select('id,name,initial_idea,description,status,current_maturity_level,created_at,updated_at')
+            .order('updated_at', ascending: false);
+        if (!mounted) return;
+        setState(() {
+          _projects
+            ..clear()
+            ..addAll(List<Map<String, dynamic>>.from(rows));
+          _loadError = null;
+          _loading = false;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() { _loadError = 'Impossible de charger vos projets. Vérifiez votre connexion puis réessayez.'; _loading = false; });
+      }
+    } else {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _createProject(String name, String idea) async {
+    setState(() => _creating = true);
+    try {
+      Map<String, dynamic> project;
+      if (widget.supabaseEnabled) {
+        final user = Supabase.instance.client.auth.currentUser;
+        if (user == null) throw Exception('Session expirée. Reconnectez-vous.');
+        project = await Supabase.instance.client.from('projects').insert({
+          'owner_id': user.id,
+          'name': name,
+          'initial_idea': idea,
+          'description': idea,
+        }).select('id,name,initial_idea,description,status,current_maturity_level,created_at,updated_at').single();
+      } else {
+        project = {
+          'id': DateTime.now().microsecondsSinceEpoch.toString(),
+          'name': name, 'initial_idea': idea, 'description': idea,
+          'status': 'draft', 'current_maturity_level': 0,
+          'created_at': DateTime.now().toIso8601String(),
+        };
+      }
+      if (!mounted) return;
+      setState(() { _projects.insert(0, project); _loadError = null; });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(widget.supabaseEnabled ? 'Projet enregistré dans votre espace.' : 'Projet ajouté à cet aperçu local.')),
+      );
+    } on PostgrestException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Enregistrement impossible : ${e.message}')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
+
+  Future<void> _showCreateProjectDialog() async {
+    final name = TextEditingController();
+    final idea = TextEditingController();
+    final result = await showDialog<List<String>>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Donnez vie à une idée'),
         content: SizedBox(
           width: 440,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Nom du projet',
-                  hintText: 'Ex. Une plateforme de logement étudiant',
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: ideaController,
-                minLines: 3,
-                maxLines: 5,
-                decoration: const InputDecoration(
-                  labelText: 'Votre idée, en quelques mots',
-                  hintText: 'Décrivez librement ce que vous avez en tête...',
-                  alignLabelWithHint: true,
-                ),
-              ),
-            ],
-          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller:name, autofocus:true, textCapitalization:TextCapitalization.sentences,
+              decoration:const InputDecoration(labelText:'Nom du projet',hintText:'Ex. Une plateforme de logement étudiant')),
+            const SizedBox(height:14),
+            TextField(controller:idea,minLines:3,maxLines:5,
+              decoration:const InputDecoration(labelText:'Votre idée, en quelques mots',hintText:'Décrivez librement ce que vous avez en tête...',alignLabelWithHint:true)),
+          ]),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final name = nameController.text.trim();
-              if (name.isEmpty) return;
-              setState(() {
-                _projects.insert(
-                  0,
-                  _ProjectDraft(
-                    name: name,
-                    idea: ideaController.text.trim(),
-                    createdAt: DateTime.now(),
-                  ),
-                );
-              });
-              Navigator.pop(dialogContext);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Projet ajouté à cet aperçu local.'),
-                ),
-              );
-            },
-            child: const Text('Créer mon projet'),
-          ),
+          TextButton(onPressed:()=>Navigator.pop(dialogContext),child:const Text('Annuler')),
+          FilledButton(onPressed:()=>Navigator.pop(dialogContext,[name.text.trim(),idea.text.trim()]),child:const Text('Créer mon projet')),
         ],
       ),
-    ).then((_) {
-      nameController.dispose();
-      ideaController.dispose();
-    });
+    );
+    name.dispose(); idea.dispose();
+    if (result != null && result.first.isNotEmpty) await _createProject(result.first,result.length>1?result[1]:'');
+  }
+
+  Future<void> _signOut() async {
+    if (widget.supabaseEnabled) await Supabase.instance.client.auth.signOut();
   }
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final compact = width < 820;
-
+    final compact = width < 900;
+    final p = context.pal;
     return Scaffold(
-      drawer: compact ? Drawer(child: _Sidebar(
-        selectedIndex: _selectedIndex,
-        onSelect: (index) {
-          setState(() => _selectedIndex = index);
-          Navigator.pop(context);
-        },
-      )) : null,
-      body: Row(
-        children: [
-          if (!compact)
-            SizedBox(
-              width: 248,
-              child: _Sidebar(
-                selectedIndex: _selectedIndex,
-                onSelect: (index) => setState(() => _selectedIndex = index),
-              ),
-            ),
-          Expanded(
-            child: Column(
-              children: [
-                _TopBar(
-                  compact: compact,
-                  onCreateProject: _showCreateProjectDialog,
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: width < 600 ? 20 : 36,
-                      vertical: 30,
-                    ),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1120),
-                        child: _selectedIndex == 0
-                            ? _DashboardContent(
-                                projects: _projects,
-                                onCreateProject: _showCreateProjectDialog,
-                              )
-                            : _ComingSoonContent(
-                                title: _navigationItems[_selectedIndex].label,
-                              ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      drawer: compact ? Drawer(
+        backgroundColor:p.bg,
+        child:_Sidebar(selectedIndex:_selectedIndex,onSelect:(i){setState(()=>_selectedIndex=i);Navigator.pop(context);},onSignOut:_signOut),
+      ) : null,
+      body: Row(children:[
+        if (!compact) SizedBox(width:260,child:_Sidebar(selectedIndex:_selectedIndex,onSelect:(i)=>setState(()=>_selectedIndex=i),onSignOut:_signOut)),
+        Expanded(child:Column(children:[
+          _TopBar(compact:compact,onCreate:_showCreateProjectDialog,onSignOut:_signOut),
+          Expanded(child:SingleChildScrollView(
+            padding:EdgeInsets.symmetric(horizontal:width<600?18:width<1000?28:44,vertical:width<600?24:36),
+            child:Center(child:ConstrainedBox(
+              constraints:const BoxConstraints(maxWidth:1160),
+              child:_selectedIndex<=1
+                ? _DashboardContent(projects:_projects,loading:_loading,error:_loadError,onRetry:_loadProjects,onCreate:_showCreateProjectDialog,projectsOnly:_selectedIndex==1)
+                : _Placeholder(title:_navItems[_selectedIndex].label),
+            )),
+          )),
+        ])),
+      ]),
     );
   }
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({
-    required this.compact,
-    required this.onCreateProject,
-  });
-
-  final bool compact;
-  final VoidCallback onCreateProject;
-
+  const _TopBar({required this.compact,required this.onCreate,required this.onSignOut});
+  final bool compact; final VoidCallback onCreate; final VoidCallback onSignOut;
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 76,
-      padding: const EdgeInsets.symmetric(horizontal: 28),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: _line)),
-      ),
-      child: Row(
-        children: [
-          if (compact) ...[
-            Builder(
-              builder: (context) => IconButton(
-                onPressed: () => Scaffold.of(context).openDrawer(),
-                icon: const Icon(Icons.menu_rounded),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          const Icon(Icons.grid_view_rounded, size: 18, color: _muted),
-          const SizedBox(width: 10),
-          const Text(
-            'Mon espace',
-            style: TextStyle(color: _muted, fontWeight: FontWeight.w500),
-          ),
-          const Spacer(),
-          OutlinedButton.icon(
-            onPressed: onCreateProject,
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Nouvelle idée'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _purple,
-              side: const BorderSide(color: Color(0xFFDCD9FF)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(11),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
-            ),
-          ),
-          const SizedBox(width: 16),
-          const CircleAvatar(
-            radius: 17,
-            backgroundColor: Color(0xFFF0EFFF),
-            child: Icon(Icons.person_outline_rounded, color: _purple, size: 19),
-          ),
-        ],
-      ),
+    final p=context.pal;
+    return Container(height:76,padding:EdgeInsets.symmetric(horizontal:compact?12:30),
+      decoration:BoxDecoration(color:p.bg,border:Border(bottom:BorderSide(color:p.divider))),
+      child:Row(children:[
+        if(compact) Builder(builder:(context)=>IconButton(onPressed:()=>Scaffold.of(context).openDrawer(),icon:const Icon(IconsaxMenu.icon))),
+        Icon(AppIcons.dashboard,size:20,color:p.textSoft),
+        const SizedBox(width:12),
+        Text('Mon espace',style:Theme.of(context).textTheme.titleSmall),
+        const Spacer(),
+        if(!compact) OutlinedButton.icon(onPressed:onCreate,icon:const Icon(AppIcons.add,size:19),label:const Text('Nouvelle idée')),
+        if(compact) IconButton(onPressed:onCreate,tooltip:'Nouvelle idée',icon:const Icon(AppIcons.add)),
+        const SizedBox(width:8),
+        PopupMenuButton<String>(
+          tooltip:'Compte',
+          onSelected:(v){if(v=='logout')onSignOut();},
+          itemBuilder:(_)=>const [PopupMenuItem(value:'logout',child:Text('Se déconnecter'))],
+          child:CircleAvatar(radius:18,backgroundColor:p.goldTint,child:Icon(AppIcons.user,size:19,color:p.text)),
+        ),
+      ]),
     );
   }
 }
+
+abstract final class IconsaxMenu { static const icon = Icons.menu_rounded; }
 
 class _Sidebar extends StatelessWidget {
-  const _Sidebar({
-    required this.selectedIndex,
-    required this.onSelect,
-  });
-
-  final int selectedIndex;
-  final ValueChanged<int> onSelect;
-
+  const _Sidebar({required this.selectedIndex,required this.onSelect,required this.onSignOut});
+  final int selectedIndex; final ValueChanged<int> onSelect; final VoidCallback onSignOut;
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(18, 26, 14, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 8, bottom: 38),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: _purple,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: const Icon(
-                    Icons.lightbulb_outline_rounded,
-                    color: Colors.white,
-                    size: 21,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Text(
-                  'cookidea',
-                  style: TextStyle(
-                    color: _ink,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.8,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(left: 10, bottom: 12),
-            child: Text(
-              'WORKSPACE',
-              style: TextStyle(
-                color: _muted,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
-          for (var i = 0; i < _navigationItems.length; i++)
-            _NavTile(
-              item: _navigationItems[i],
-              selected: selectedIndex == i,
-              onTap: () => onSelect(i),
-            ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7F6FF),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFECEAFF)),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.auto_awesome_rounded, color: _purple, size: 19),
-                SizedBox(height: 9),
-                Text(
-                  'Une idée en tête ?',
-                  style: TextStyle(
-                    color: _ink,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Commencez simplement. Cookidea vous guidera.',
-                  style: TextStyle(color: _muted, fontSize: 11, height: 1.5),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          const Divider(color: _line),
-          const SizedBox(height: 8),
-          const _NavTile(
-            item: _NavItem(Icons.settings_outlined, 'Paramètres'),
-            selected: false,
-            onTap: _emptyCallback,
-          ),
-        ],
-      ),
+    final p=context.pal;
+    return Container(color:p.bg,padding:const EdgeInsets.fromLTRB(18,26,14,20),
+      child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Padding(padding:const EdgeInsets.only(left:8,bottom:42),child:Row(children:[
+          Container(width:38,height:38,decoration:BoxDecoration(color:p.gold,borderRadius:BorderRadius.circular(13)),child:Icon(AppIcons.idea,color:p.onGold,size:22)),
+          const SizedBox(width:11),
+          Text('cookidea',style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.w800,letterSpacing:-.7)),
+        ])),
+        Padding(padding:const EdgeInsets.only(left:10,bottom:13),child:Text('WORKSPACE',style:Theme.of(context).textTheme.labelSmall?.copyWith(letterSpacing:1.4))),
+        for(var i=0;i<_navItems.length;i++)
+          _NavTile(item:_navItems[i],selected:selectedIndex==i,onTap:()=>onSelect(i)),
+        const Spacer(),
+        Container(padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:p.card,borderRadius:BorderRadius.circular(16),border:Border.all(color:p.divider)),
+          child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Icon(AppIcons.sparkles,color:p.gold,size:21),const SizedBox(height:10),
+            Text('Une idée en tête ?',style:Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height:5),
+            Text('Commencez simplement. Cookidea vous guidera.',style:Theme.of(context).textTheme.bodySmall),
+          ])),
+        const SizedBox(height:18),const Divider(),const SizedBox(height:8),
+        _NavTile(item:const _NavItem(AppIcons.settings,'Paramètres'),selected:false,onTap:onSignOut),
+      ]),
     );
   }
 }
 
-void _emptyCallback() {}
-
 class _NavItem {
-  const _NavItem(this.icon, this.label);
-  final IconData icon;
-  final String label;
+  const _NavItem(this.icon,this.label);
+  final IconData icon; final String label;
 }
-
-const _navigationItems = [
-  _NavItem(Icons.space_dashboard_outlined, 'Vue d’ensemble'),
-  _NavItem(Icons.folder_open_outlined, 'Mes projets'),
-  _NavItem(Icons.explore_outlined, 'Explorer une idée'),
-  _NavItem(Icons.account_tree_outlined, 'Carte d’entreprise'),
-  _NavItem(Icons.auto_awesome_outlined, 'Assistant IA'),
+const _navItems=[
+  _NavItem(AppIcons.dashboard,'Vue d’ensemble'),
+  _NavItem(AppIcons.projects,'Mes projets'),
+  _NavItem(AppIcons.explore,'Explorer une idée'),
+  _NavItem(AppIcons.map,'Carte d’entreprise'),
+  _NavItem(AppIcons.assistant,'Assistant IA'),
 ];
 
 class _NavTile extends StatelessWidget {
-  const _NavTile({
-    required this.item,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final _NavItem item;
-  final bool selected;
-  final VoidCallback onTap;
-
+  const _NavTile({required this.item,required this.selected,required this.onTap});
+  final _NavItem item; final bool selected; final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
-      child: Material(
-        color: selected ? const Color(0xFFF0EFFF) : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 11),
-            child: Row(
-              children: [
-                Icon(
-                  item.icon,
-                  size: 19,
-                  color: selected ? _purple : _muted,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  item.label,
-                  style: TextStyle(
-                    color: selected ? _purple : const Color(0xFF5D6175),
-                    fontSize: 12,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+    final p=context.pal;
+    return Padding(padding:const EdgeInsets.only(bottom:5),child:Material(
+      color:selected?p.goldTint:Colors.transparent,borderRadius:BorderRadius.circular(12),
+      child:InkWell(onTap:onTap,borderRadius:BorderRadius.circular(12),
+        child:Padding(padding:const EdgeInsets.symmetric(horizontal:12,vertical:13),child:Row(children:[
+          Icon(item.icon,size:21,color:selected?p.text:p.textSoft),
+          const SizedBox(width:13),
+          Expanded(child:Text(item.label,style:Theme.of(context).textTheme.labelMedium?.copyWith(color:selected?p.text:p.textSoft,fontWeight:selected?FontWeight.w700:FontWeight.w500))),
+        ])),
       ),
-    );
+    ));
   }
 }
 
 class _DashboardContent extends StatelessWidget {
-  const _DashboardContent({
-    required this.projects,
-    required this.onCreateProject,
-  });
-
-  final List<_ProjectDraft> projects;
-  final VoidCallback onCreateProject;
+  const _DashboardContent({required this.projects,required this.loading,required this.error,required this.onRetry,required this.onCreate,required this.projectsOnly});
+  final List<Map<String,dynamic>> projects; final bool loading; final String? error;
+  final VoidCallback onRetry,onCreate; final bool projectsOnly;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Bonjour 👋',
-          style: TextStyle(
-            color: _ink,
-            fontSize: 29,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.1,
-          ),
-        ),
-        const SizedBox(height: 7),
-        const Text(
-          'Chaque grande réalisation commence par une idée.',
-          style: TextStyle(color: _muted, fontSize: 14),
-        ),
-        const SizedBox(height: 30),
-        Row(
-          children: [
-            Expanded(
-              child: _StatCard(
-                icon: Icons.lightbulb_outline_rounded,
-                label: 'Mes idées',
-                value: projects.length.toString().padLeft(2, '0'),
-                tint: const Color(0xFFF0EFFF),
-                iconColor: _purple,
-              ),
-            ),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: _StatCard(
-                icon: Icons.track_changes_outlined,
-                label: 'En maturation',
-                value: '—',
-                tint: Color(0xFFEAF7F2),
-                iconColor: Color(0xFF25966A),
-              ),
-            ),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: _StatCard(
-                icon: Icons.task_alt_rounded,
-                label: 'Actions à venir',
-                value: '—',
-                tint: Color(0xFFFFF4E8),
-                iconColor: Color(0xFFE49A43),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 34),
-        Row(
-          children: [
-            const Text(
-              'Vos projets',
-              style: TextStyle(
-                color: _ink,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.4,
-              ),
-            ),
-            const Spacer(),
-            TextButton(
-              onPressed: onCreateProject,
-              child: const Text('Créer un projet'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        if (projects.isEmpty)
-          _EmptyProjects(onCreateProject: onCreateProject)
-        else
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth > 760 ? 2 : 1;
-              return Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: [
-                  for (final project in projects)
-                    SizedBox(
-                      width: (constraints.maxWidth - (columns - 1) * 16) /
-                          columns,
-                      child: _ProjectCard(project: project),
-                    ),
-                ],
-              );
-            },
-          ),
-        const SizedBox(height: 28),
-        const _GettingStartedCard(),
+    final p=context.pal;
+    return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Text(projectsOnly?'Vos projets':'Bonjour 👋',style:Theme.of(context).textTheme.headlineMedium),
+      const SizedBox(height:8),
+      Text(projectsOnly?'Retrouvez et faites évoluer toutes vos idées.':'Chaque grande réalisation commence par une idée.',style:Theme.of(context).textTheme.bodySmall),
+      if(!projectsOnly) ...[
+        const SizedBox(height:30),
+        LayoutBuilder(builder:(context,c){
+          final columns=c.maxWidth<520?1:c.maxWidth<850?2:3;
+          final cards=[
+            _StatCard(icon:AppIcons.idea,label:'Mes idées',value:projects.length.toString().padLeft(2,'0')),
+            const _StatCard(icon:AppIcons.clock,label:'En maturation',value:'—'),
+            const _StatCard(icon:AppIcons.task,label:'Actions à venir',value:'—'),
+          ];
+          return Wrap(spacing:14,runSpacing:14,children:[
+            for(final card in cards) SizedBox(width:(c.maxWidth-(columns-1)*14)/columns,child:card),
+          ]);
+        }),
       ],
-    );
+      const SizedBox(height:34),
+      Row(children:[
+        Expanded(child:Text(projectsOnly?'Tous vos projets':'Vos projets',style:Theme.of(context).textTheme.titleLarge)),
+        TextButton.icon(onPressed:onCreate,icon:const Icon(AppIcons.add,size:18),label:const Text('Créer un projet')),
+      ]),
+      const SizedBox(height:14),
+      if(error!=null) Card(child:Padding(padding:const EdgeInsets.all(18),child:Row(children:[
+        Expanded(child:Text(error!,style:TextStyle(color:p.danger))),
+        IconButton(onPressed:onRetry,icon:const Icon(Icons.refresh)),
+      ]))),
+      if(loading) const Padding(padding:EdgeInsets.all(40),child:Center(child:CircularProgressIndicator())),
+      if(!loading && error==null && projects.isEmpty) _EmptyProjects(onCreate:onCreate),
+      if(!loading && projects.isNotEmpty) LayoutBuilder(builder:(context,c){
+        final columns=c.maxWidth>760?2:1;
+        return Wrap(spacing:16,runSpacing:16,children:[
+          for(final project in projects)
+            SizedBox(width:(c.maxWidth-(columns-1)*16)/columns,child:_ProjectCard(project:project)),
+        ]);
+      }),
+      if(!projectsOnly) ...[
+        const SizedBox(height:28),
+        Container(width:double.infinity,padding:const EdgeInsets.all(20),decoration:BoxDecoration(color:p.goldTint.withOpacity(.42),borderRadius:BorderRadius.circular(18),border:Border.all(color:p.gold.withOpacity(.35))),
+          child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Icon(AppIcons.sparkles,color:p.goldText,size:23),const SizedBox(width:14),
+            Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text('Pas besoin d’une idée parfaite.',style:Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height:6),
+              Text('Cookidea vous aide à clarifier vos pensées, identifier les bonnes questions et transformer vos intuitions en étapes concrètes.',style:Theme.of(context).textTheme.bodySmall),
+            ])),
+          ])),
+      ],
+    ]);
   }
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.tint,
-    required this.iconColor,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color tint;
-  final Color iconColor;
-
+  const _StatCard({required this.icon,required this.label,required this.value});
+  final IconData icon; final String label,value;
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: tint,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: iconColor, size: 18),
-          ),
-          const SizedBox(height: 17),
-          Text(
-            value,
-            style: const TextStyle(
-              color: _ink,
-              fontSize: 23,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: const TextStyle(color: _muted, fontSize: 11),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
+    final p=context.pal;
+    return Card(child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Container(width:38,height:38,decoration:BoxDecoration(color:p.goldTint,borderRadius:BorderRadius.circular(12)),child:Icon(icon,color:p.goldText,size:21)),
+      const SizedBox(height:18),
+      Text(value,style:Theme.of(context).textTheme.headlineSmall),
+      const SizedBox(height:4),
+      Text(label,style:Theme.of(context).textTheme.bodySmall),
+    ])));
   }
 }
 
 class _EmptyProjects extends StatelessWidget {
-  const _EmptyProjects({required this.onCreateProject});
-
-  final VoidCallback onCreateProject;
-
+  const _EmptyProjects({required this.onCreate});
+  final VoidCallback onCreate;
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 42),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _line),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 68,
-            height: 68,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF0EFFF),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.emoji_objects_outlined,
-              color: _purple,
-              size: 31,
-            ),
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'Votre prochain projet commence ici',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: _ink,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const SizedBox(
-            width: 390,
-            child: Text(
-              'Vous n’avez pas besoin d’avoir toutes les réponses. '
-              'Décrivez simplement votre idée, et nous avancerons ensemble.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _muted, fontSize: 12, height: 1.7),
-            ),
-          ),
-          const SizedBox(height: 22),
-          FilledButton.icon(
-            onPressed: onCreateProject,
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Créer ma première idée'),
-            style: FilledButton.styleFrom(
-              backgroundColor: _purple,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(11),
-              ),
-            ),
-          ),
-        ],
-      ),
+    final p=context.pal;
+    return Container(width:double.infinity,padding:const EdgeInsets.symmetric(horizontal:24,vertical:44),
+      decoration:BoxDecoration(color:p.card,borderRadius:BorderRadius.circular(20),border:Border.all(color:p.divider)),
+      child:Column(children:[
+        Container(width:72,height:72,decoration:BoxDecoration(color:p.goldTint,shape:BoxShape.circle),child:Icon(AppIcons.idea,color:p.goldText,size:32)),
+        const SizedBox(height:20),
+        Text('Votre prochain projet commence ici',textAlign:TextAlign.center,style:Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height:9),
+        ConstrainedBox(constraints:const BoxConstraints(maxWidth:430),child:Text('Vous n’avez pas besoin d’avoir toutes les réponses. Décrivez simplement votre idée, et nous avancerons ensemble.',textAlign:TextAlign.center,style:Theme.of(context).textTheme.bodySmall)),
+        const SizedBox(height:24),
+        FilledButton.icon(onPressed:onCreate,icon:const Icon(AppIcons.add),label:const Text('Créer ma première idée'),style:FilledButton.styleFrom(backgroundColor:p.gold,foregroundColor:p.onGold,padding:const EdgeInsets.symmetric(horizontal:20,vertical:17))),
+      ]),
     );
   }
 }
 
 class _ProjectCard extends StatelessWidget {
   const _ProjectCard({required this.project});
-
-  final _ProjectDraft project;
-
+  final Map<String,dynamic> project;
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.lightbulb_outline_rounded, color: _purple, size: 19),
-              Spacer(),
-              Text(
-                'BROUILLON',
-                style: TextStyle(
-                  color: _muted,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 15),
-          Text(
-            project.name,
-            style: const TextStyle(
-              color: _ink,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          if (project.idea.isNotEmpty) ...[
-            const SizedBox(height: 7),
-            Text(
-              project.idea,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: _muted, fontSize: 12, height: 1.5),
-            ),
-          ],
-          const SizedBox(height: 15),
-          Text(
-            'Créé le ${project.createdAt.day.toString().padLeft(2, '0')}/'
-            '${project.createdAt.month.toString().padLeft(2, '0')}/'
-            '${project.createdAt.year}',
-            style: const TextStyle(color: _muted, fontSize: 10),
-          ),
-        ],
-      ),
-    );
+    final p=context.pal;
+    final status=project['status']?.toString()??'draft';
+    final idea=(project['initial_idea']??project['description']??'').toString();
+    final created=DateTime.tryParse(project['created_at']?.toString()??'');
+    return Card(child:Padding(padding:const EdgeInsets.all(19),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Row(children:[
+        Icon(AppIcons.idea,color:p.goldText,size:21),const Spacer(),
+        Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:5),decoration:BoxDecoration(color:p.goldTint,borderRadius:BorderRadius.circular(20)),child:Text(status=='draft'?'BROUILLON':status.toUpperCase(),style:Theme.of(context).textTheme.labelSmall?.copyWith(color:p.goldText,fontSize:11))),
+      ]),
+      const SizedBox(height:16),
+      Text(project['name']?.toString()??'Projet sans nom',style:Theme.of(context).textTheme.titleMedium),
+      if(idea.isNotEmpty) ...[const SizedBox(height:8),Text(idea,maxLines:3,overflow:TextOverflow.ellipsis,style:Theme.of(context).textTheme.bodySmall)],
+      const SizedBox(height:18),
+      Row(children:[
+        Icon(AppIcons.clock,size:15,color:p.textSoft),const SizedBox(width:7),
+        Text(created==null?'Récemment créé':'Créé le ${created.day.toString().padLeft(2,'0')}/${created.month.toString().padLeft(2,'0')}/${created.year}',style:Theme.of(context).textTheme.labelSmall),
+        const Spacer(),
+        Text('Niveau ${project['current_maturity_level']??0}/9',style:Theme.of(context).textTheme.labelSmall),
+      ]),
+    ])));
   }
 }
 
-class _GettingStartedCard extends StatelessWidget {
-  const _GettingStartedCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF0EFFF), Color(0xFFF9F8FF)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8E5FF)),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.auto_awesome_rounded, color: _purple, size: 22),
-          SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Pas besoin d’une idée parfaite.',
-                  style: TextStyle(
-                    color: _ink,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 5),
-                Text(
-                  'Cookidea est conçu pour vous aider à clarifier vos pensées, '
-                  'identifier les bonnes questions et transformer vos intuitions '
-                  'en étapes concrètes.',
-                  style: TextStyle(color: _muted, fontSize: 11, height: 1.6),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ComingSoonContent extends StatelessWidget {
-  const _ComingSoonContent({required this.title});
-
+class _Placeholder extends StatelessWidget {
+  const _Placeholder({required this.title});
   final String title;
-
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(48),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _line),
-      ),
-      child: Column(
-        children: [
-          const Icon(Icons.construction_outlined, color: _purple, size: 36),
-          const SizedBox(height: 15),
-          Text(
-            title,
-            style: const TextStyle(
-              color: _ink,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Ce module sera activé dans une prochaine étape du développement.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: _muted, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProjectDraft {
-  const _ProjectDraft({
-    required this.name,
-    required this.idea,
-    required this.createdAt,
-  });
-
-  final String name;
-  final String idea;
-  final DateTime createdAt;
+  Widget build(BuildContext context) => Center(child:Padding(padding:const EdgeInsets.all(32),child:Column(mainAxisSize:MainAxisSize.min,children:[
+    Icon(AppIcons.sparkles,size:38,color:context.pal.gold),const SizedBox(height:16),
+    Text(title,style:Theme.of(context).textTheme.headlineSmall),
+    const SizedBox(height:8),
+    Text('Ce module sera construit dans une prochaine étape.',textAlign:TextAlign.center,style:Theme.of(context).textTheme.bodySmall),
+  ])));
 }
