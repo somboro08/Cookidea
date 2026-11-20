@@ -29,7 +29,7 @@ Pour connecter un projet Supabase :
 ```bash
 flutter run -d chrome \
   --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
 ```
 
 Ne jamais placer une clé `service_role`, une clé secrète ou un secret de fournisseur IA dans l'application Flutter.
@@ -53,4 +53,4 @@ Voir [la stratégie e-mail et notifications](docs/EMAILS.md) pour la configurati
 
 ## Déploiement Netlify
 
-Le site publie `build/web` avec un fallback SPA. Ajouter les secrets GitHub `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NETLIFY_AUTH_TOKEN` et `NETLIFY_SITE_ID` pour activer le déploiement automatique sur `main`. Sans identifiants Netlify, le workflow construit et archive le site sans publier.
+Le site publie `build/web` avec un fallback SPA. Ajouter les secrets GitHub `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `NETLIFY_AUTH_TOKEN` et `NETLIFY_SITE_ID` pour activer le déploiement automatique sur `main`. Sans identifiants Netlify, le workflow construit et archive le site sans publier.
