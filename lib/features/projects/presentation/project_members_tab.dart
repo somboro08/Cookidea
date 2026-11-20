@@ -163,10 +163,14 @@ class _ProjectMembersTabState extends State<ProjectMembersTab> {
               Text(member['full_name']?.toString().isNotEmpty == true ? member['full_name'].toString() : 'Membre Cookidea', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 3), Text(member['email']?.toString() ?? '', style: Theme.of(context).textTheme.bodySmall),
             ])),
-            DropdownButton<String>(value: member['role'] == 'viewer' ? 'viewer' : 'editor', underline: const SizedBox.shrink(),
-              onChanged: _busy ? null : (value) { if (value != null && value != member['role']) _changeRole(member, value); },
-              items: const [DropdownMenuItem(value: 'editor', child: Text('Éditeur')), DropdownMenuItem(value: 'viewer', child: Text('Lecteur'))]),
-            IconButton(tooltip: 'Retirer', onPressed: _busy ? null : () => _remove(member), icon: const Icon(Icons.person_remove_outlined)),
+            if (member['is_owner'] == true)
+              Chip(label: const Text('Propriétaire'), backgroundColor: p.goldTint)
+            else ...[
+              DropdownButton<String>(value: member['role'] == 'viewer' ? 'viewer' : 'editor', underline: const SizedBox.shrink(),
+                onChanged: _busy ? null : (value) { if (value != null && value != member['role']) _changeRole(member, value); },
+                items: const [DropdownMenuItem(value: 'editor', child: Text('Éditeur')), DropdownMenuItem(value: 'viewer', child: Text('Lecteur'))]),
+              IconButton(tooltip: 'Retirer', onPressed: _busy ? null : () => _remove(member), icon: const Icon(Icons.person_remove_outlined)),
+            ],
           ]))),
         ],
       ))),
