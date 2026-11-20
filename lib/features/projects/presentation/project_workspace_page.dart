@@ -51,7 +51,7 @@ class _ProjectWorkspacePageState extends State<ProjectWorkspacePage> {
     setState(() => _maturity = value);
     if (!widget.supabaseEnabled) return;
     try {
-      await Supabase.instance.client.from('projects').update({'current_maturity_level': value}).eq('id', widget.project['id']);
+      await Supabase.instance.client.from('projects').update({'current_maturity_level': value}).eq('id', widget.project['id'].toString());
     } on PostgrestException catch (e) {
       if (!mounted) return;
       setState(() => _maturity = previous);
