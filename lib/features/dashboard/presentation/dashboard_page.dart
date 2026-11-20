@@ -30,7 +30,7 @@ class _DashboardPageState extends State<DashboardPage> {
       try {
         final rows = await Supabase.instance.client
             .from('projects')
-            .select('id,name,initial_idea,description,status,current_maturity_level,created_at,updated_at')
+            .select('id,name,initial_idea,description,problem_statement,target_audience,status,current_maturity_level,created_at,updated_at')
             .order('updated_at', ascending: false);
         if (!mounted) return;
         setState(() {
@@ -145,7 +145,7 @@ class _DashboardPageState extends State<DashboardPage> {
             child:Center(child:ConstrainedBox(
               constraints:const BoxConstraints(maxWidth:1160),
               child:_selectedIndex<=1
-                ? _DashboardContent(projects:_projects,loading:_loading,error:_loadError,onRetry:_loadProjects,onCreate:_showCreateProjectDialog,projectsOnly:_selectedIndex==1)
+                ? _DashboardContent(projects:_projects,loading:_loading,error:_loadError,onRetry:_loadProjects,onCreate:_showCreateProjectDialog,projectsOnly:_selectedIndex==1,supabaseEnabled:widget.supabaseEnabled)
                 : _Placeholder(title:_navItems[_selectedIndex].label),
             )),
           )),
@@ -248,9 +248,9 @@ class _NavTile extends StatelessWidget {
 }
 
 class _DashboardContent extends StatelessWidget {
-  const _DashboardContent({required this.projects,required this.loading,required this.error,required this.onRetry,required this.onCreate,required this.projectsOnly});
+  const _DashboardContent({required this.projects,required this.loading,required this.error,required this.onRetry,required this.onCreate,required this.projectsOnly,required this.supabaseEnabled});
   final List<Map<String,dynamic>> projects; final bool loading; final String? error;
-  final VoidCallback onRetry,onCreate; final bool projectsOnly;
+  final VoidCallback onRetry,onCreate; final bool projectsOnly; final bool supabaseEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -289,7 +289,7 @@ class _DashboardContent extends StatelessWidget {
         final columns=c.maxWidth>760?2:1;
         return Wrap(spacing:16,runSpacing:16,children:[
           for(final project in projects)
-            SizedBox(width:(c.maxWidth-(columns-1)*16)/columns,child:_ProjectCard(project:project)),
+            SizedBox(width:(c.maxWidth-(columns-1)*16)/columns,child:_ProjectCard(project:project,supabaseEnabled:supabaseEnabled)),
         ]);
       }),
       if(!projectsOnly) ...[
@@ -346,8 +346,8 @@ class _EmptyProjects extends StatelessWidget {
 }
 
 class _ProjectCard extends StatelessWidget {
-  const _ProjectCard({required this.project});
-  final Map<String,dynamic> project;
+  const _ProjectCard({required this.project,required this.supabaseEnabled});
+  final Map<String,dynamic> project; final bool supabaseEnabled;
   @override
   Widget build(BuildContext context) {
     final p=context.pal;
@@ -357,7 +357,7 @@ class _ProjectCard extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: () => Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => ProjectWorkspacePage(project: project, supabaseEnabled: true),
+        builder: (_) => ProjectWorkspacePage(project: project, supabaseEnabled: supabaseEnabled),
       )),
       child: Card(child:Padding(padding:const EdgeInsets.all(19),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Row(children:[
