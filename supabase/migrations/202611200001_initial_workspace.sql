@@ -248,4 +248,10 @@ with check (
   and public.can_edit_project(project_id)
 );
 
+-- Restrict helper execution to authenticated application users.
+revoke all on function public.is_project_member(uuid) from public, anon;
+revoke all on function public.can_edit_project(uuid) from public, anon;
+grant execute on function public.is_project_member(uuid) to authenticated;
+grant execute on function public.can_edit_project(uuid) to authenticated;
+
 commit;
