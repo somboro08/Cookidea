@@ -227,31 +227,171 @@ class _RecordsTabState extends State<_RecordsTab> {
     try{await Supabase.instance.client.from(widget.config.table).delete().eq('id',record['id'].toString());await _load();}
     on PostgrestException catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Suppression impossible : ${e.message}')));}
   }
-  @override Widget build(BuildContext context){
-    final p=context.pal;
-    return ListView(padding:const EdgeInsets.fromLTRB(18,22,18,32),children:[Center(child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:900),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(widget.config.title,style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:5),Text(widget.config.description,style:Theme.of(context).textTheme.bodySmall)])),
-        const SizedBox(width:12),FilledButton.icon(onPressed:!widget.enabled||saving?null:()=>_edit(),icon:const Icon(Icons.add,size:18),label:const Text('Ajouter')),
-      ]),
-      const SizedBox(height:20),
-      if(loading)const Center(child:Padding(padding:EdgeInsets.all(36),child:CircularProgressIndicator())),
-      if(error!=null)Card(child:Padding(padding:const EdgeInsets.all(18),child:Row(children:[const Icon(Icons.info_outline),const SizedBox(width:12),Expanded(child:Text(error!,style:Theme.of(context).textTheme.bodySmall)),if(widget.enabled)IconButton(onPressed:_load,icon:const Icon(Icons.refresh))]))),
-      if(!loading&&error==null&&records.isEmpty)Card(child:Padding(padding:const EdgeInsets.all(30),child:Column(children:[
-        Icon(widget.config.icon,size:34,color:p.goldText),const SizedBox(height:14),Text(widget.config.empty,style:Theme.of(context).textTheme.titleMedium,textAlign:TextAlign.center),
-        const SizedBox(height:8),Text('Ajoutez un premier élément pour structurer votre démarche.',style:Theme.of(context).textTheme.bodySmall,textAlign:TextAlign.center),
-        const SizedBox(height:16),OutlinedButton.icon(onPressed:()=>_edit(),icon:const Icon(Icons.add),label:const Text('Créer le premier élément')),
-      ]))),
-      if(!loading)for(final r in records)Card(margin:const EdgeInsets.only(bottom:12),child:Padding(padding:const EdgeInsets.all(16),child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Container(width:38,height:38,decoration:BoxDecoration(color:p.goldTint,borderRadius:BorderRadius.circular(12)),child:Icon(widget.config.icon,color:p.goldText,size:20)),
-        const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Text(r['title']?.toString()??'Sans titre',style:Theme.of(context).textTheme.titleSmall),
-          if((r['description']??r['method']??r['rationale']??'').toString().isNotEmpty)Padding(padding:const EdgeInsets.only(top:5),child:Text((r['description']??r['method']??r['rationale']).toString(),maxLines:3,overflow:TextOverflow.ellipsis,style:Theme.of(context).textTheme.bodySmall)),
-          const SizedBox(height:8),Wrap(spacing:7,runSpacing:5,children:[for(final k in ['status','outcome','evidence_type'])if(r[k]!=null)_Tag(r[k].toString()),if(r['source']!=null&&r['source'].toString().isNotEmpty)_Tag('Source : ${r['source']}')]),
-        ])),
-        PopupMenuButton<String>(onSelected:(v){if(v=='edit')_edit(r);if(v=='delete')_delete(r);},itemBuilder:(_)=>const[PopupMenuItem(value:'edit',child:Text('Modifier')),PopupMenuItem(value:'delete',child:Text('Supprimer'))]),
-      ])))),
-    ])))]);
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(18, 22, 18, 32),
+      children: [
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.config.title, style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 5),
+                          Text(widget.config.description, style: Theme.of(context).textTheme.bodySmall),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton.icon(
+                      onPressed: !widget.enabled || saving ? null : () => _edit(),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Ajouter'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                if (loading)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(36),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                if (error != null)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline),
+                          const SizedBox(width: 12),
+                          Expanded(child: Text(error!, style: Theme.of(context).textTheme.bodySmall)),
+                          if (widget.enabled)
+                            IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (!loading && error == null && records.isEmpty)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(30),
+                      child: Column(
+                        children: [
+                          Icon(widget.config.icon, size: 34, color: p.goldText),
+                          const SizedBox(height: 14),
+                          Text(
+                            widget.config.empty,
+                            style: Theme.of(context).textTheme.titleMedium,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Ajoutez un premier élément pour structurer votre démarche.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: !widget.enabled ? null : () => _edit(),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Créer le premier élément'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (!loading)
+                  for (final record in records)
+                    Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: p.goldTint,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(widget.config.icon, color: p.goldText, size: 20),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    record['title']?.toString() ?? 'Sans titre',
+                                    style: Theme.of(context).textTheme.titleSmall,
+                                  ),
+                                  if ((record['description'] ??
+                                          record['method'] ??
+                                          record['rationale'] ??
+                                          '')
+                                      .toString()
+                                      .isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 5),
+                                      child: Text(
+                                        (record['description'] ??
+                                                record['method'] ??
+                                                record['rationale'])
+                                            .toString(),
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context).textTheme.bodySmall,
+                                      ),
+                                    ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 7,
+                                    runSpacing: 5,
+                                    children: [
+                                      for (final key in ['status', 'outcome', 'evidence_type'])
+                                        if (record[key] != null) _Tag(record[key].toString()),
+                                      if (record['source'] != null &&
+                                          record['source'].toString().isNotEmpty)
+                                        _Tag('Source : ${record['source']}'),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'edit') _edit(record);
+                                if (value == 'delete') _delete(record);
+                              },
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(value: 'edit', child: Text('Modifier')),
+                                PopupMenuItem(value: 'delete', child: Text('Supprimer')),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 class _Tag extends StatelessWidget{
