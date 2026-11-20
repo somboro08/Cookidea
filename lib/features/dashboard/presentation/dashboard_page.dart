@@ -61,6 +61,17 @@ class _DashboardPageState extends State<DashboardPage> {
           'initial_idea': idea,
           'description': idea,
         }).select('id,name,initial_idea,description,status,current_maturity_level,created_at,updated_at').single();
+        try {
+          await Supabase.instance.client.from('project_activity').insert({
+            'project_id': project['id'],
+            'actor_id': user.id,
+            'event_type': 'project_created',
+            'title': 'Projet créé',
+            'description': 'Le projet « $name » a été ajouté à votre espace.',
+          });
+        } catch (_) {
+          // The project itself is saved; activity history is best-effort.
+        }
       } else {
         project = {
           'id': DateTime.now().microsecondsSinceEpoch.toString(),
