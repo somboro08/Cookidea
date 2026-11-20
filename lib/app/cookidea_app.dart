@@ -1,48 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-import '../features/dashboard/presentation/dashboard_page.dart';
+import 'package:flutter/services.dart';
+import '../core/theme.dart';
+import '../features/auth/presentation/auth_gate.dart';
 
 class CookideaApp extends StatelessWidget {
-  const CookideaApp({super.key});
+  const CookideaApp({super.key, required this.supabaseEnabled});
+  final bool supabaseEnabled;
 
   @override
   Widget build(BuildContext context) {
-    final baseTheme = ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF635BFF),
-        brightness: Brightness.light,
-        surface: const Color(0xFFFFFFFF),
-      ),
-      scaffoldBackgroundColor: const Color(0xFFF7F8FC),
-      textTheme: GoogleFonts.interTextTheme(),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: const Color(0xFFF8F9FC),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE7E8EF)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE7E8EF)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF635BFF), width: 1.5),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      ),
-    );
-
     return MaterialApp(
       title: 'Cookidea',
       debugShowCheckedModeBanner: false,
-      theme: baseTheme.copyWith(
-        textTheme: GoogleFonts.interTextTheme(baseTheme.textTheme),
-      ),
-      home: const DashboardPage(),
+      theme: buildTheme(Brightness.light),
+      darkTheme: buildTheme(Brightness.dark),
+      themeMode: ThemeMode.system,
+      builder: (context, child) {
+        final dark = Theme.of(context).brightness == Brightness.dark;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+            systemNavigationBarColor: context.pal.bg,
+            systemNavigationBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+      home: AuthGate(supabaseEnabled: supabaseEnabled),
     );
   }
 }
