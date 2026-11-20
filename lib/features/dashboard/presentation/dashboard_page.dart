@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/icons.dart';
 import '../../../core/theme.dart';
+import '../../projects/presentation/project_workspace_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key, required this.supabaseEnabled});
@@ -353,7 +354,12 @@ class _ProjectCard extends StatelessWidget {
     final status=project['status']?.toString()??'draft';
     final idea=(project['initial_idea']??project['description']??'').toString();
     final created=DateTime.tryParse(project['created_at']?.toString()??'');
-    return Card(child:Padding(padding:const EdgeInsets.all(19),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => ProjectWorkspacePage(project: project, supabaseEnabled: true),
+      )),
+      child: Card(child:Padding(padding:const EdgeInsets.all(19),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Row(children:[
         Icon(AppIcons.idea,color:p.goldText,size:21),const Spacer(),
         Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:5),decoration:BoxDecoration(color:p.goldTint,borderRadius:BorderRadius.circular(20)),child:Text(status=='draft'?'BROUILLON':status.toUpperCase(),style:Theme.of(context).textTheme.labelSmall?.copyWith(color:p.goldText,fontSize:11))),
@@ -368,7 +374,7 @@ class _ProjectCard extends StatelessWidget {
         const Spacer(),
         Text('Niveau ${project['current_maturity_level']??0}/9',style:Theme.of(context).textTheme.labelSmall),
       ]),
-    ])));
+    ]))));
   }
 }
 
