@@ -33,7 +33,9 @@ class _AuthPageState extends State<AuthPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _name = TextEditingController();
+  final _otp = TextEditingController();
   bool _register = false;
+  bool _otpSent = false;
   bool _busy = false;
   bool _showPassword = false;
   String? _error;
@@ -41,7 +43,7 @@ class _AuthPageState extends State<AuthPage> {
 
   @override
   void dispose() {
-    _email.dispose(); _password.dispose(); _name.dispose();
+    _email.dispose(); _password.dispose(); _name.dispose(); _otp.dispose();
     super.dispose();
   }
 
@@ -74,6 +76,28 @@ class _AuthPageState extends State<AuthPage> {
     }
   }
 
+
+  Future<void> _sendOtp() async {
+    if (!_email.text.trim().contains('@')) { setState(() => _error = 'Saisissez une adresse e-mail valide.'); return; }
+    setState(() { _busy = true; _error = null; _notice = null; });
+    try {
+      await Supabase.instance.client.auth.signInWithOtp(email: _email.text.trim(), shouldCreateUser: false);
+      if (mounted) setState(() { _otpSent = true; _notice = 'Un code de connexion vient d’être envoyé à votre adresse e-mail.'; });
+    } on AuthException catch (e) { if (mounted) setState(() => _error = e.message); }
+    catch (_) { if (mounted) setState(() => _error = 'Impossible d’envoyer le code. Réessayez.'); }
+    finally { if (mounted) setState(() => _busy = false); }
+  }
+
+  Future<void> _verifyOtp() async {
+    if (_otp.text.trim().length < 6) { setState(() => _error = 'Saisissez le code reçu par e-mail.'); return; }
+    setState(() { _busy = true; _error = null; _notice = null; });
+    try {
+      await Supabase.instance.client.auth.verifyOTP(email: _email.text.trim(), token: _otp.text.trim(), type: OtpType.email);
+    } on AuthException catch (e) { if (mounted) setState(() => _error = e.message); }
+    catch (_) { if (mounted) setState(() => _error = 'Code invalide ou expiré. Demandez un nouveau code.'); }
+    finally { if (mounted) setState(() => _busy = false); }
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.pal;
@@ -104,17 +128,20 @@ class _AuthPageState extends State<AuthPage> {
                   ],
                   TextField(controller:_email, keyboardType:TextInputType.emailAddress, decoration:const InputDecoration(labelText:'Adresse e-mail',prefixIcon:Icon(AppIcons.mail))),
                   const SizedBox(height:14),
-                  TextField(controller:_password, obscureText:!_showPassword, decoration:InputDecoration(labelText:'Mot de passe',prefixIcon:const Icon(AppIcons.lock),suffixIcon:IconButton(onPressed:()=>setState(()=>_showPassword=!_showPassword),icon:Icon(_showPassword?Icons.visibility_off:Icons.visibility)))),
+                  if (!_otpSent) TextField(controller:_password, obscureText:!_showPassword, decoration:InputDecoration(labelText:'Mot de passe',prefixIcon:const Icon(AppIcons.lock),suffixIcon:IconButton(onPressed:()=>setState(()=>_showPassword=!_showPassword),icon:Icon(_showPassword?Icons.visibility_off:Icons.visibility)))),
+                  if (_otpSent) ...[const SizedBox(height:14),TextField(controller:_otp,keyboardType:TextInputType.number,maxLength:8,decoration:const InputDecoration(labelText:'Code reçu par e-mail',prefixIcon:Icon(Icons.password),counterText:''))],
                   if (_error != null) ...[const SizedBox(height:14),Text(_error!,style:TextStyle(color:p.danger))],
                   if (_notice != null) ...[const SizedBox(height:14),Text(_notice!,style:TextStyle(color:p.success))],
                   const SizedBox(height:22),
                   FilledButton(
-                    onPressed:_busy?null:_submit,
+                    onPressed:_busy?null:(_otpSent?_verifyOtp:_submit),
                     style:FilledButton.styleFrom(backgroundColor:p.gold,foregroundColor:p.onGold,padding:const EdgeInsets.symmetric(vertical:17)),
-                    child:_busy?const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2)):Text(_register?'Créer mon compte':'Se connecter'),
+                    child:_busy?const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2)):Text(_register?'Créer mon compte':_otpSent?'Vérifier le code':'Se connecter'),
                   ),
                   const SizedBox(height:12),
-                  TextButton(onPressed:()=>setState((){_register=!_register;_error=null;_notice=null;}),child:Text(_register?'J’ai déjà un compte':'Créer un compte')),
+                  if (!_otpSent) TextButton(onPressed:()=>setState((){_register=!_register;_error=null;_notice=null;}),child:Text(_register?'J’ai déjà un compte':'Créer un compte')),
+                  if (!_register && !_otpSent) TextButton(onPressed:_busy?null:_sendOtp,child:const Text('Recevoir un code par e-mail')),
+                  if (_otpSent) TextButton(onPressed:_busy?null:()=>setState(()=>_otpSent=false),child:const Text('Utiliser mon mot de passe')),
                   if (!_register) TextButton(onPressed:() async {
                     if (_email.text.trim().isEmpty) { setState(()=>_error='Saisissez votre adresse e-mail.'); return; }
                     try {
