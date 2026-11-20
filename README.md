@@ -9,48 +9,81 @@ Cookidea est un workspace de maturation d'idées et de construction entrepreneur
 - Flutter Web / Dart
 - Riverpod pour l'état applicatif
 - GoRouter pour la navigation
-- Supabase (PostgreSQL, Auth, Storage, RLS)
+- Supabase (PostgreSQL, Auth, Storage, RLS, Edge Functions)
 - GitHub Actions pour analyse, tests et build Flutter Web
-- Netlify pour l'hébergement et le déploiement continu
+- Netlify pour l'hébergement (déploiement mis en pause pendant le développement)
 
-## Démarrage
+## Démarrage local
 
-Prérequis : Flutter stable et Dart compatibles avec le SDK indiqué dans `pubspec.yaml`.
+Prérequis : Flutter stable, Dart et Python 3.
+
+1. Installer les dépendances :
 
 ```bash
 flutter pub get
-flutter run -d chrome
 ```
 
-L'application démarre en mode aperçu local tant que les variables Supabase ne sont pas configurées.
-
-Pour connecter un projet Supabase :
+2. Créer le fichier d'environnement local :
 
 ```bash
-flutter run -d chrome \
-  --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
-  --dart-define=SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
+cp .env.example .env
 ```
 
-Ne jamais placer une clé `service_role`, une clé secrète ou un secret de fournisseur IA dans l'application Flutter.
+3. Renseigner les valeurs du projet Supabase dans `.env` :
+
+```dotenv
+SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+```
+
+4. Lancer Flutter en chargeant automatiquement les variables :
+
+```bash
+python3 tool/flutter_env.py run -d chrome
+```
+
+Pour compiler le Web localement :
+
+```bash
+python3 tool/flutter_env.py build web --release
+```
+
+Le script transmet les variables en `--dart-define` à Flutter. Le fichier `.env` reste local et n'est jamais commité. Le lancement direct via `flutter run` sans `--dart-define` démarre en mode aperçu non connecté.
+
+Les variables d'environnement du système ont priorité sur celles du fichier local. La CI utilise ses propres secrets GitHub `SUPABASE_URL` et `SUPABASE_PUBLISHABLE_KEY`.
+
+Ne jamais placer une clé `service_role`, une clé secrète Supabase ou un secret SMTP dans l'application Flutter, `.env` racine ou les variables de build Web.
+
+## Edge Functions Supabase
+
+La fonction `send-project-email` est déployée sur le projet Supabase et exige un JWT utilisateur valide. Elle vérifie l'appartenance au projet, le rôle de l'expéditeur et du destinataire, applique une limite d'envoi et journalise l'opération.
+
+Pour la tester localement, créer `supabase/functions/.env` à partir de `supabase/functions/.env.example`, puis démarrer Supabase et la fonction :
+
+```bash
+supabase start
+supabase functions serve send-project-email --env-file supabase/functions/.env
+```
+
+Pour activer l'envoi sur le projet hébergé, renseigner les variables SMTP dans Supabase Dashboard → Edge Functions → Secrets. Utiliser un port SMTP compatible avec les restrictions Edge Functions (465 avec TLS est le choix prévu ici). Ne jamais commiter le mot de passe d'application. Le service renvoie `503 EMAIL_SERVICE_NOT_CONFIGURED` tant que ces secrets ne sont pas configurés.
+
+Les e-mails OTP, confirmations et réinitialisations de mot de passe restent gérés par Supabase Auth et sa configuration SMTP dédiée. Cette Edge Function concerne les e-mails métier entre membres d'un même projet.
 
 ## Structure
 
 - `lib/core` : configuration, thème, navigation et composants transverses
 - `lib/features` : fonctionnalités organisées par domaine
 - `supabase/migrations` : migrations SQL versionnées
+- `supabase/functions` : Edge Functions et exemples de secrets locaux
 - `docs` : spécifications et décisions d'architecture
+- `tool` : scripts de développement local
 
 ## Produit
 
-La première livraison couvre la fondation du workspace : expérience d'accueil, navigation, tableau de bord initial et préparation de l'intégration Supabase.
+La première livraison couvre la fondation du workspace : expérience d'accueil, navigation, tableau de bord initial, cadrage, hypothèses, expériences, preuves et décisions.
 
-Voir [les spécifications fonctionnelles](docs/PRODUCT_SPEC.md) et [l'architecture](docs/ARCHITECTURE.md).
+Voir [la stratégie e-mail et notifications](docs/EMAILS.md).
 
-## E-mails
+## Contrôles qualité
 
-Voir [la stratégie e-mail et notifications](docs/EMAILS.md) pour la configuration SMTP Supabase Auth, le flux OTP et l'architecture des communications applicatives.
-
-## Déploiement Netlify
-
-Le site publie `build/web` avec un fallback SPA. Ajouter les secrets GitHub `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `NETLIFY_AUTH_TOKEN` et `NETLIFY_SITE_ID` pour activer le déploiement automatique sur `main`. Sans identifiants Netlify, le workflow construit et archive le site sans publier.
+Le workflow GitHub Actions exécute le formatage, l'analyse, les tests et le build Flutter Web. La publication Netlify reste volontairement désactivée pendant la phase de développement.
