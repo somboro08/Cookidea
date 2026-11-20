@@ -38,7 +38,7 @@ class _ProjectWorkspacePageState extends State<ProjectWorkspacePage> {
       await Supabase.instance.client.from('projects').update({
         'problem_statement': _problem.text.trim(),
         'target_audience': _audience.text.trim(),
-      }).eq('id', widget.project['id']);
+      }).eq('id', widget.project['id'].toString());
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Exploration enregistrée.')));
     } on PostgrestException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Enregistrement impossible : ' + e.message)));
