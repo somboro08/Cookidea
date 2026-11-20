@@ -76,4 +76,24 @@ begin
   end loop;
 end $$;
 
+commit;create policy "Members can view hypotheses" on public.project_hypotheses for select to authenticated using (public.is_project_member(project_id));
+create policy "Editors can insert hypotheses" on public.project_hypotheses for insert to authenticated with check (created_by = (select auth.uid()) and public.can_edit_project(project_id));
+create policy "Editors can update hypotheses" on public.project_hypotheses for update to authenticated using (public.can_edit_project(project_id)) with check (public.can_edit_project(project_id));
+create policy "Editors can delete hypotheses" on public.project_hypotheses for delete to authenticated using (public.can_edit_project(project_id));
+
+create policy "Members can view experiments" on public.project_experiments for select to authenticated using (public.is_project_member(project_id));
+create policy "Editors can insert experiments" on public.project_experiments for insert to authenticated with check (created_by = (select auth.uid()) and public.can_edit_project(project_id));
+create policy "Editors can update experiments" on public.project_experiments for update to authenticated using (public.can_edit_project(project_id)) with check (public.can_edit_project(project_id));
+create policy "Editors can delete experiments" on public.project_experiments for delete to authenticated using (public.can_edit_project(project_id));
+
+create policy "Members can view evidence" on public.project_evidence for select to authenticated using (public.is_project_member(project_id));
+create policy "Editors can insert evidence" on public.project_evidence for insert to authenticated with check (created_by = (select auth.uid()) and public.can_edit_project(project_id));
+create policy "Editors can update evidence" on public.project_evidence for update to authenticated using (public.can_edit_project(project_id)) with check (public.can_edit_project(project_id));
+create policy "Editors can delete evidence" on public.project_evidence for delete to authenticated using (public.can_edit_project(project_id));
+
+create policy "Members can view decisions" on public.project_decisions for select to authenticated using (public.is_project_member(project_id));
+create policy "Editors can insert decisions" on public.project_decisions for insert to authenticated with check (created_by = (select auth.uid()) and public.can_edit_project(project_id));
+create policy "Editors can update decisions" on public.project_decisions for update to authenticated using (public.can_edit_project(project_id)) with check (public.can_edit_project(project_id));
+create policy "Editors can delete decisions" on public.project_decisions for delete to authenticated using (public.can_edit_project(project_id));
+
 commit;
