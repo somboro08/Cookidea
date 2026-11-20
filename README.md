@@ -10,7 +10,8 @@ Cookidea est un workspace de maturation d'idées et de construction entrepreneur
 - Riverpod pour l'état applicatif
 - GoRouter pour la navigation
 - Supabase (PostgreSQL, Auth, Storage, RLS)
-- GitHub Actions pour l'intégration continue
+- GitHub Actions pour analyse, tests et build Flutter Web
+- Netlify pour l'hébergement et le déploiement continu
 
 ## Démarrage
 
@@ -45,3 +46,11 @@ Ne jamais placer une clé `service_role`, une clé secrète ou un secret de four
 La première livraison couvre la fondation du workspace : expérience d'accueil, navigation, tableau de bord initial et préparation de l'intégration Supabase.
 
 Voir [les spécifications fonctionnelles](docs/PRODUCT_SPEC.md) et [l'architecture](docs/ARCHITECTURE.md).
+
+## E-mails
+
+Voir [la stratégie e-mail et notifications](docs/EMAILS.md) pour la configuration SMTP Supabase Auth, le flux OTP et l'architecture des communications applicatives.
+
+## Déploiement Netlify
+
+Le site publie `build/web` avec un fallback SPA. Ajouter les secrets GitHub `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NETLIFY_AUTH_TOKEN` et `NETLIFY_SITE_ID` pour activer le déploiement automatique sur `main`. Sans identifiants Netlify, le workflow construit et archive le site sans publier.
