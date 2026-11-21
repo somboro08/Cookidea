@@ -49,6 +49,12 @@ class _ProjectActivityTabState extends State<ProjectActivityTab> {
     'member_removed' => Icons.person_remove_alt_1,
     'member_role_changed' => Icons.admin_panel_settings_outlined,
     'project_email_sent' => Icons.mail_outline,
+    'invitation_sent' => Icons.mark_email_read_outlined,
+    'invitation_accepted' => Icons.how_to_reg_outlined,
+    'invitation_revoked' => Icons.link_off_outlined,
+    'task_created' => Icons.add_task_outlined,
+    'task_updated' => Icons.edit_note,
+    'task_deleted' => Icons.delete_outline,
     _ => Icons.edit_note,
   };
 
