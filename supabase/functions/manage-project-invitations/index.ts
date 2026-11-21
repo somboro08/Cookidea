@@ -57,6 +57,7 @@ Deno.serve(async (req: Request) => {
       .select("id,project_id,email,role,status,expires_at")
       .eq("token_hash", tokenHash).maybeSingle();
     if (error || !invitation) return json({ error: "INVITATION_NOT_FOUND" }, 404);
+    if (invitation.status === "accepted" && invitation.accepted_by === caller.id) return json({ success: true, project_id: invitation.project_id, already_accepted: true });
     if (invitation.status !== "pending") return json({ error: "INVITATION_NOT_PENDING" }, 409);
     if (new Date(invitation.expires_at).getTime() <= Date.now()) {
       await admin.from("project_invitations").update({ status: "expired" }).eq("id", invitation.id);
