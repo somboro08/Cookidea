@@ -69,15 +69,22 @@ Deno.serve(async (req: Request) => {
     const { data: existing } = await admin.from("project_members").select("id")
       .eq("project_id", invitation.project_id).eq("user_id", caller.id).maybeSingle();
     if (!existing) {
-      const { error: addError } = await admin.from("project_members").insert({
+      const { error: addError } = await admin.from("project_members").upsert({
         project_id: invitation.project_id, user_id: caller.id, role: invitation.role,
-      });
+      }, { onConflict: "project_id,user_id", ignoreDuplicates: true });
       if (addError) return json({ error: "MEMBERSHIP_CREATE_FAILED" }, 500);
     }
-    const { error: updateError } = await admin.from("project_invitations").update({
+    const { data: acceptedRow, error: updateError } = await admin.from("project_invitations").update({
       status: "accepted", accepted_by: caller.id, accepted_at: new Date().toISOString(),
-    }).eq("id", invitation.id).eq("status", "pending");
+    }).eq("id", invitation.id).eq("status", "pending").select("id").maybeSingle();
     if (updateError) return json({ error: "INVITATION_ACCEPT_FAILED" }, 500);
+    if (!acceptedRow) {
+      const { data: latest } = await admin.from("project_invitations")
+        .select("status,accepted_by").eq("id", invitation.id).maybeSingle();
+      if (latest?.status !== "accepted" || latest.accepted_by !== caller.id) {
+        return json({ error: "INVITATION_NOT_PENDING" }, 409);
+      }
+    }
     await admin.from("project_activity").insert({
       project_id: invitation.project_id, actor_id: caller.id,
       event_type: "invitation_accepted", title: "Invitation acceptée",
@@ -100,7 +107,16 @@ Deno.serve(async (req: Request) => {
       .select("id,email,role,status,expires_at,created_at")
       .eq("project_id", projectId).order("created_at", { ascending: false });
     if (error) return json({ error: "INVITATIONS_LOAD_FAILED" }, 500);
-    return json({ invitations: data ?? [] });
+    const now = Date.now();
+    const invitations = data ?? [];
+    for (const invitation of invitations) {
+      if (invitation.status === "pending" && new Date(invitation.expires_at).getTime() <= now) {
+        invitation.status = "expired";
+        await admin.from("project_invitations").update({ status: "expired" })
+          .eq("id", invitation.id).eq("status", "pending");
+      }
+    }
+    return json({ invitations });
   }
 
   if (project.owner_id !== caller.id) return json({ error: "OWNER_ONLY" }, 403);
