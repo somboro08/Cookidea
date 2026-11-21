@@ -62,6 +62,7 @@ class _AuthPageState extends State<AuthPage> {
           email: _email.text.trim(),
           password: _password.text,
           data: {'full_name': _name.text.trim()},
+          emailRedirectTo: widget.inviteToken == null ? null : Uri.base.toString(),
         );
         if (result.session == null && mounted) {
           setState(() => _notice = 'Compte créé. Vérifiez votre boîte mail pour confirmer votre adresse.');
