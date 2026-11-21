@@ -16,6 +16,9 @@ function adminKey(): string | null {
   }
   return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? null;
 }
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\'/g, "&#39;");
+}
 function randomToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -159,6 +162,18 @@ Deno.serve(async (req: Request) => {
       .eq("project_id", projectId).eq("user_id", existingUser.id).maybeSingle();
     if (membership) return json({ error: "ALREADY_MEMBER" }, 409);
   }
+
+  const { count: pendingCount } = await admin.from("project_invitations")
+    .select("id", { count: "exact", head: true })
+    .eq("project_id", projectId).eq("status", "pending");
+  if ((pendingCount ?? 0) >= 30) return json({ error: "PROJECT_INVITATION_LIMIT" }, 429);
+  const { count: recentCount } = await admin.from("project_invitations")
+    .select("id", { count: "exact", head: true })
+    .eq("invited_by", caller.id).gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
+  if ((recentCount ?? 0) >= 10) return json({ error: "INVITATION_RATE_LIMIT" }, 429);
+  const { data: duplicate } = await admin.from("project_invitations").select("id")
+    .eq("project_id", projectId).eq("email", email).eq("status", "pending").maybeSingle();
+  if (duplicate) return json({ error: "INVITATION_ALREADY_PENDING" }, 409);
 
   const rawToken = randomToken();
   const tokenHash = await hashToken(rawToken);
