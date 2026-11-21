@@ -103,9 +103,7 @@ Deno.serve(async (req: Request) => {
   if (projectError || !project) return json({ error: "PROJECT_NOT_FOUND" }, 404);
 
   if (body.action === "list") {
-    const { data: membership } = await admin.from("project_members").select("id")
-      .eq("project_id", projectId).eq("user_id", caller.id).maybeSingle();
-    if (project.owner_id !== caller.id && !membership) return json({ error: "FORBIDDEN" }, 403);
+    if (project.owner_id !== caller.id) return json({ error: "OWNER_ONLY" }, 403);
     const { data, error } = await admin.from("project_invitations")
       .select("id,email,role,status,expires_at,created_at")
       .eq("project_id", projectId).order("created_at", { ascending: false });
