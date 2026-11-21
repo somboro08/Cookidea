@@ -14,7 +14,9 @@ void main() {
     expect(find.text('Bonjour 👋'), findsOneWidget);
     expect(find.text('Vos projets'), findsOneWidget);
     expect(find.text('Créer ma première idée'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+    final exception = tester.takeException();
+    if (exception != null) debugPrint('WIDGET_EXCEPTION: $exception');
+    expect(exception, isNull);
   });
 
   testWidgets('workspace adapts to a narrow mobile viewport', (tester) async {
@@ -22,7 +24,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const MaterialApp(home: DashboardPage(supabaseEnabled: false)));
+    await tester.pumpWidget(MaterialApp(theme: buildTheme(Brightness.light), home: const DashboardPage(supabaseEnabled: false)));
     await tester.pumpAndSettle();
     expect(find.byType(Drawer), findsNothing);
     expect(find.text('Bonjour 👋'), findsOneWidget);
