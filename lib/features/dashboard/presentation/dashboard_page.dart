@@ -5,8 +5,9 @@ import '../../../core/theme.dart';
 import '../../projects/presentation/project_workspace_page.dart';
 
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key, required this.supabaseEnabled});
+  const DashboardPage({super.key, required this.supabaseEnabled, this.pendingInvitationToken});
   final bool supabaseEnabled;
+  final String? pendingInvitationToken;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -22,6 +23,7 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
     _loadProjects();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _acceptPendingInvitation());
   }
 
   Future<void> _loadProjects() async {
@@ -45,6 +47,41 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     } else {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+
+  Future<void> _acceptPendingInvitation() async {
+    final token = widget.pendingInvitationToken;
+    if (!widget.supabaseEnabled || token == null || token.isEmpty) return;
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'manage-project-invitations',
+        body: {'action': 'accept', 'token': token},
+      );
+      final data = response.data;
+      if (response.status >= 200 && response.status < 300 && data is Map && data['success'] == true) {
+        await _loadProjects();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invitation acceptée. Le projet est maintenant dans votre espace.')),
+          );
+        }
+      } else {
+        final code = data is Map ? data['error']?.toString() : null;
+        final message = switch (code) {
+          'INVITATION_EMAIL_MISMATCH' => 'Connectez-vous avec l’adresse e-mail à laquelle cette invitation a été envoyée.',
+          'INVITATION_EXPIRED' => 'Cette invitation a expiré. Demandez au propriétaire de vous en envoyer une nouvelle.',
+          'INVITATION_NOT_FOUND' => 'Ce lien d’invitation est invalide ou a déjà été supprimé.',
+          'INVITATION_NOT_PENDING' => 'Cette invitation n’est plus en attente.',
+          _ => 'Impossible d’accepter cette invitation. Vérifiez le lien ou contactez le propriétaire.',
+        };
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de traiter l’invitation. Réessayez.')),
+      );
     }
   }
 
