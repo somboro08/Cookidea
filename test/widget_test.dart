@@ -4,6 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cookidea/core/theme.dart';
 
 void main() {
+  final previousErrorHandler = FlutterError.onError;
+  FlutterError.onError = (details) {
+    debugPrint('FULL_FLUTTER_ERROR: ${details.toString()}');
+    previousErrorHandler?.call(details);
+  };
   testWidgets('workspace renders on desktop', (tester) async {
     tester.view.physicalSize = const Size(1440, 1000);
     tester.view.devicePixelRatio = 1;
