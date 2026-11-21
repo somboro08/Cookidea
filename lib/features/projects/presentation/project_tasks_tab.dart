@@ -39,7 +39,8 @@ class _ProjectTasksTabState extends State<ProjectTasksTab> {
       }
       final members = List<Map<String, dynamic>>.from(
         (memberResponse.data as Map)['members'] as List? ?? const []);
-      final current = members.where((m) => m['user_id'] == userId).firstOrNull;
+      Map<String, dynamic>? current;
+      for (final member in members) { if (member['user_id'] == userId) { current = member; break; } }
       final canEdit = current?['is_owner'] == true || current?['role'] == 'editor';
       final rows = await client.from('project_tasks').select()
         .eq('project_id', widget.projectId).order('created_at', ascending: false);
@@ -167,8 +168,9 @@ class _ProjectTasksTabState extends State<ProjectTasksTab> {
   };
   String _memberName(String? id) {
     if (id == null) return 'Non assignée';
-    final m = _members.where((e) => e['user_id'] == id).firstOrNull;
-    return (m?['full_name'] ?? m?['email'] ?? 'Membre').toString();
+    Map<String, dynamic>? found;
+    for (final member in _members) { if (member['user_id'] == id) { found = member; break; } }
+    return (found?['full_name'] ?? found?['email'] ?? 'Membre').toString();
   }
   void _message(String value) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value)));
 
