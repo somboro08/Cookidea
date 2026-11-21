@@ -58,3 +58,25 @@ Le fichier racine `.env` est réservé aux variables de compilation Flutter (`SU
 - Authentification JWT et contrôle des permissions côté serveur.
 - Limitation d'envoi et journalisation des événements.
 - Les e-mails d'authentification et les e-mails métier restent deux circuits distincts.
+
+## 4. Invitations aux projets
+
+La fonction `manage-project-invitations` gère les invitations vers un projet, y compris pour une personne qui n'a pas encore de compte Cookidea.
+
+- Le jeton d'invitation contient 256 bits aléatoires ; seule son empreinte SHA-256 est stockée en base.
+- Le lien expire après 7 jours.
+- Le lien peut être révoqué ou renvoyé ; un renvoi crée un nouveau jeton.
+- L'acceptation exige une session authentifiée dont l'adresse e-mail correspond à l'adresse invitée.
+- L'inscription conserve le lien d'invitation pendant la confirmation e-mail.
+- La fonction est déployée avec la vérification JWT activée ; l'action d'acceptation est idempotente pour le compte qui l'a déjà utilisée.
+
+Secrets supplémentaires pour l'Edge Function :
+- `APP_BASE_URL` : URL du Flutter Web qui doit recevoir le lien, par exemple `http://localhost:5000` en développement local ou l'URL publique de l'application en environnement hébergé.
+
+Pour le développement local, renseigner `APP_BASE_URL` dans `supabase/functions/.env` et lancer les fonctions avec ce fichier. Pour le projet hébergé, ajouter `APP_BASE_URL` dans Supabase Dashboard → Edge Functions → Secrets. Le domaine utilisé doit également être autorisé dans Authentication → URL Configuration, notamment pour les liens de confirmation d'inscription.
+
+Ne pas utiliser `localhost` pour une invitation destinée à un utilisateur distant : le navigateur de cette personne ouvrirait son propre ordinateur.
+
+## 5. Variables locales
+
+Le fichier `supabase/functions/.env.example` est un modèle. Copier son contenu dans `supabase/functions/.env`, puis remplacer les valeurs localement. Le fichier réel est ignoré par Git.
