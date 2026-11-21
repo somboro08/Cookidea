@@ -15,7 +15,14 @@ void main() {
     expect(find.text('Vos projets'), findsOneWidget);
     expect(find.text('Créer ma première idée'), findsOneWidget);
     final exception = tester.takeException();
-    if (exception != null) debugPrint('WIDGET_EXCEPTION: $exception');
+    if (exception != null) {
+      debugPrint('WIDGET_EXCEPTION: $exception');
+      if (exception is FlutterError) {
+        for (final node in exception.diagnostics) {
+          debugPrint(node.toStringDeep());
+        }
+      }
+    }
     expect(exception, isNull);
   });
 
