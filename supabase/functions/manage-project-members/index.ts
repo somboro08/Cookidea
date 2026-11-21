@@ -41,7 +41,12 @@ Deno.serve(async (req: Request) => {
   const { data: project, error: projectError } = await admin.from("projects")
     .select("id,name,owner_id").eq("id", projectId).maybeSingle();
   if (projectError || !project) return json({ error: "PROJECT_NOT_FOUND" }, 404);
-  if (project.owner_id !== caller.id) return json({ error: "OWNER_ONLY" }, 403);
+  if (project.owner_id !== caller.id && body.action !== "list") return json({ error: "OWNER_ONLY" }, 403);
+  if (body.action === "list" && project.owner_id !== caller.id) {
+    const { data: callerMembership } = await admin.from("project_members")
+      .select("id").eq("project_id", projectId).eq("user_id", caller.id).maybeSingle();
+    if (!callerMembership) return json({ error: "FORBIDDEN" }, 403);
+  }
 
   const logActivity = async (event: string, title: string, metadata: Record<string, unknown>) => {
     await admin.from("project_activity").insert({
@@ -65,7 +70,12 @@ Deno.serve(async (req: Request) => {
         avatar_url: profile?.avatar_url ?? null,
       });
     }
-    members.unshift({ id: null, user_id: project.owner_id, role: "owner", joined_at: null, full_name: caller.user_metadata?.full_name ?? null, email: caller.email ?? null, avatar_url: null, is_owner: true });
+    const { data: ownerProfile } = await admin.from("profiles")
+      .select("full_name,avatar_url").eq("id", project.owner_id).maybeSingle();
+    const { data: ownerData } = await admin.auth.admin.getUserById(project.owner_id);
+    members.unshift({ id: null, user_id: project.owner_id, role: "owner", joined_at: null,
+      full_name: ownerProfile?.full_name ?? ownerData.user?.user_metadata?.full_name ?? null,
+      email: ownerData.user?.email ?? null, avatar_url: ownerProfile?.avatar_url ?? null, is_owner: true });
     return json({ members });
   }
 
