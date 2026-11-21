@@ -1,5 +1,4 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import nodemailer from "npm:nodemailer@^9";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -34,7 +33,7 @@ Deno.serve(async (req: Request) => {
   const caller = authData.user;
   if (authError || !caller) return json({ error: "UNAUTHORIZED" }, 401);
 
-  let body: { action?: string; project_id?: string; email?: string; role?: string; user_id?: string };
+  let body: { action?: string; project_id?: string; role?: string; user_id?: string };
   try { body = await req.json(); } catch { return json({ error: "INVALID_JSON" }, 400); }
   const projectId = body.project_id?.trim();
   if (!projectId) return json({ error: "PROJECT_REQUIRED" }, 400);
@@ -77,49 +76,6 @@ Deno.serve(async (req: Request) => {
       full_name: ownerProfile?.full_name ?? ownerData.user?.user_metadata?.full_name ?? null,
       email: ownerData.user?.email ?? null, avatar_url: ownerProfile?.avatar_url ?? null, is_owner: true });
     return json({ members });
-  }
-
-  if (body.action === "invite") {
-    const email = body.email?.trim().toLowerCase();
-    const role = body.role ?? "editor";
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "INVALID_EMAIL" }, 400);
-    if (!["editor", "viewer"].includes(role)) return json({ error: "INVALID_ROLE" }, 400);
-    if (email === caller.email?.toLowerCase()) return json({ error: "CANNOT_INVITE_SELF" }, 400);
-    const users = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    if (users.error) return json({ error: "USER_LOOKUP_FAILED" }, 500);
-    const invitedUser = users.data.users.find((u) => u.email?.toLowerCase() === email);
-    if (!invitedUser) return json({ error: "USER_NOT_FOUND", message: "Cette adresse ne possède pas encore de compte Cookidea." }, 404);
-    if (invitedUser.id === project.owner_id) return json({ error: "ALREADY_OWNER" }, 409);
-    const { data: membership } = await admin.from("project_members")
-      .select("id").eq("project_id", projectId).eq("user_id", invitedUser.id).maybeSingle();
-    if (membership) return json({ error: "ALREADY_MEMBER" }, 409);
-    const { error: insertError } = await admin.from("project_members").insert({
-      project_id: projectId, user_id: invitedUser.id, role,
-    });
-    if (insertError) return json({ error: "MEMBER_ADD_FAILED" }, 500);
-    await logActivity("member_added", "Un membre a rejoint le projet", { role });
-    let emailSent = false;
-    const smtpHost = Deno.env.get("SMTP_HOST");
-    const smtpUser = Deno.env.get("SMTP_USER");
-    const smtpPassword = Deno.env.get("SMTP_PASSWORD");
-    const smtpFrom = Deno.env.get("SMTP_FROM");
-    if (smtpHost && smtpUser && smtpPassword && smtpFrom) {
-      const transport = nodemailer.createTransport({
-        host: smtpHost, port: Number(Deno.env.get("SMTP_PORT") ?? "465"),
-        secure: (Deno.env.get("SMTP_SECURE") ?? "true").toLowerCase() === "true",
-        auth: { user: smtpUser, pass: smtpPassword },
-      });
-      try {
-        await transport.sendMail({
-          from: smtpFrom, to: email, replyTo: caller.email ?? undefined,
-          subject: "Vous avez rejoint « " + project.name + " » sur Cookidea",
-          text: (caller.user_metadata?.full_name ?? caller.email ?? "Un membre") + " vous a ajouté au projet « " + project.name + " » avec le rôle " + (role === "editor" ? "Éditeur" : "Lecteur") + ". Connectez-vous à Cookidea pour le retrouver.",
-        });
-        emailSent = true;
-      } catch (error) { console.error("Member notification failed", error); }
-      finally { transport.close(); }
-    }
-    return json({ success: true, email_sent: emailSent });
   }
 
   if (body.action === "change_role") {
