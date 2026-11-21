@@ -201,7 +201,7 @@ class _TopBar extends StatelessWidget {
         if(compact) Builder(builder:(context)=>IconButton(onPressed:()=>Scaffold.of(context).openDrawer(),icon:const Icon(IconsaxMenu.icon))),
         Icon(AppIcons.dashboard,size:20,color:p.textSoft),
         const SizedBox(width:12),
-        Text('Mon espace',style:Theme.of(context).textTheme.titleSmall),
+        Flexible(child: Text('Mon espace', maxLines: 1, overflow: TextOverflow.ellipsis, style:Theme.of(context).textTheme.titleSmall)),
         const Spacer(),
         if(!compact) OutlinedButton.icon(onPressed:onCreate,icon:const Icon(AppIcons.add,size:19),label:const Text('Nouvelle idée')),
         if(compact) IconButton(onPressed:onCreate,tooltip:'Nouvelle idée',icon:const Icon(AppIcons.add)),
@@ -230,7 +230,7 @@ class _Sidebar extends StatelessWidget {
         Padding(padding:const EdgeInsets.only(left:8,bottom:42),child:Row(children:[
           Container(width:38,height:38,decoration:BoxDecoration(color:p.gold,borderRadius:BorderRadius.circular(13)),child:Icon(AppIcons.idea,color:p.onGold,size:22)),
           const SizedBox(width:11),
-          Text('cookidea',style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.w800,letterSpacing:-.7)),
+          Expanded(child: Text('cookidea', maxLines: 1, overflow: TextOverflow.ellipsis, style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.w800,letterSpacing:-.7))),
         ])),
         Padding(padding:const EdgeInsets.only(left:10,bottom:13),child:Text('WORKSPACE',style:Theme.of(context).textTheme.labelSmall?.copyWith(letterSpacing:1.4))),
         for(var i=0;i<_navItems.length;i++)
@@ -308,10 +308,16 @@ class _DashboardContent extends StatelessWidget {
         }),
       ],
       const SizedBox(height:34),
-      Row(children:[
-        Expanded(child:Text(projectsOnly?'Tous vos projets':'Vos projets',style:Theme.of(context).textTheme.titleLarge)),
-        TextButton.icon(onPressed:onCreate,icon:const Icon(AppIcons.add,size:18),label:const Text('Créer un projet')),
-      ]),
+      Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 6,
+        children:[
+          Text(projectsOnly?'Tous vos projets':'Vos projets',style:Theme.of(context).textTheme.titleLarge),
+          TextButton.icon(onPressed:onCreate,icon:const Icon(AppIcons.add,size:18),label:const Text('Créer un projet')),
+        ],
+      ),
       const SizedBox(height:14),
       if(error!=null) Card(child:Padding(padding:const EdgeInsets.all(18),child:Row(children:[
         Expanded(child:Text(error!,style:TextStyle(color:p.danger))),
