@@ -106,7 +106,7 @@ class _ProjectWorkspacePageState extends State<ProjectWorkspacePage> {
     );
   }
 
-  Widget _framing(dynamic p) => ListView(
+  Widget _framing(AppPalette p) => ListView(
     padding: const EdgeInsets.all(20),
     children: [
       Center(child: ConstrainedBox(
