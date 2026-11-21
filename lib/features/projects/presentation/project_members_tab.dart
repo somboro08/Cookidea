@@ -67,14 +67,16 @@ class _ProjectMembersTabState extends State<ProjectMembersTab> {
     setState(() { _loading = true; _error = null; });
     try {
       final membersData = await _invoke('list');
-      final invitationsData = await _invokeInvitation('list');
       if (!mounted) return;
       final members = List<Map<String, dynamic>>.from(membersData['members'] as List? ?? const []);
       final currentId = Supabase.instance.client.auth.currentUser?.id;
+      final isOwner = members.any((m) => m['user_id'] == currentId && m['is_owner'] == true);
+      final invitationsData = isOwner ? await _invokeInvitation('list') : <String, dynamic>{'invitations': <dynamic>[]};
+      if (!mounted) return;
       setState(() {
         _members = members;
         _invitations = List<Map<String, dynamic>>.from(invitationsData['invitations'] as List? ?? const []);
-        _isOwner = members.any((m) => m['user_id'] == currentId && m['is_owner'] == true);
+        _isOwner = isOwner;
         _loading = false;
       });
     } catch (e) {
