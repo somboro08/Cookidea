@@ -211,9 +211,9 @@ Deno.serve(async (req: Request) => {
       text: inviterName + " vous invite à rejoindre le projet « " + project.name +
         " » comme " + (role === "editor" ? "Éditeur" : "Lecteur") +
         ". Cette invitation expire dans 7 jours. Ouvrez ce lien pour l'accepter : " + link,
-      html: "<p>" + inviterName + " vous invite à rejoindre <strong>" + project.name +
+      html: "<p>" + escapeHtml(inviterName) + " vous invite à rejoindre <strong>" + escapeHtml(project.name) +
         "</strong> sur Cookidea.</p><p>Rôle : " + (role === "editor" ? "Éditeur" : "Lecteur") +
-        ".</p><p><a href=\"" + link + "\">Accepter l’invitation</a></p><p>Ce lien expire dans 7 jours.</p>",
+        ".</p><p><a href=\"" + escapeHtml(link) + "\">Accepter l’invitation</a></p><p>Ce lien expire dans 7 jours.</p>",
     });
   } catch (error) {
     console.error("Invitation email failed", error);
