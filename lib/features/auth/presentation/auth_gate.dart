@@ -12,19 +12,21 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!supabaseEnabled) return const DashboardPage(supabaseEnabled: false);
     final client = Supabase.instance.client;
+    final inviteToken = Uri.base.queryParameters['invite'];
     return StreamBuilder<AuthState>(
       stream: client.auth.onAuthStateChange,
       builder: (context, snapshot) {
         final session = snapshot.data?.session ?? client.auth.currentSession;
-        if (session == null) return const AuthPage();
-        return const DashboardPage(supabaseEnabled: true);
+        if (session == null) return AuthPage(inviteToken: inviteToken);
+        return DashboardPage(supabaseEnabled: true, pendingInvitationToken: inviteToken);
       },
     );
   }
 }
 
 class AuthPage extends StatefulWidget {
-  const AuthPage({super.key});
+  const AuthPage({super.key, this.inviteToken});
+  final String? inviteToken;
   @override
   State<AuthPage> createState() => _AuthPageState();
 }
@@ -122,6 +124,12 @@ class _AuthPageState extends State<AuthPage> {
                   const SizedBox(height:8),
                   Text(_register ? 'Une idée mérite un endroit pour grandir.' : 'Connectez-vous pour retrouver vos projets.',style:Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height:26),
+                  if (widget.inviteToken != null && widget.inviteToken!.isNotEmpty) ...[
+                    Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: p.goldTint, borderRadius: BorderRadius.circular(12)), child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Icon(Icons.mail_outline), SizedBox(width: 10), Expanded(child: Text('Vous avez reçu une invitation à rejoindre un projet Cookidea. Connectez-vous ou créez un compte avec l’adresse e-mail invitée pour l’accepter.')),
+                    ])),
+                    const SizedBox(height: 18),
+                  ],
                   if (_register) ...[
                     TextField(controller:_name, textCapitalization:TextCapitalization.words, decoration:const InputDecoration(labelText:'Nom complet',prefixIcon:Icon(AppIcons.user))),
                     const SizedBox(height:14),
